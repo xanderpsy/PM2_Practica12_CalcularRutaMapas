@@ -17,8 +17,10 @@ class ViewController: UIViewController,UISearchBarDelegate, MKMapViewDelegate {
     var latitud: CLLocationDegrees?
     var longitud: CLLocationDegrees?
     var altitud: Double?
+    
     //Manager para ser uso del GPS
     var manager = CLLocationManager()
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
@@ -40,7 +42,7 @@ class ViewController: UIViewController,UISearchBarDelegate, MKMapViewDelegate {
 
     @IBAction func ubicacionButtom(_ sender: UIBarButtonItem) {
         print("error al tener en un a ubicacion ")
-        let alerta = UIAlertController(title: "error", message: "Lat:\(latitud ?? 0) Lon:\(longitud ?? 0)", preferredStyle: .alert)
+        let alerta = UIAlertController(title: "Tu ubicacion", message: "Lat:\(latitud ?? 0) Lon:\(longitud ?? 0)", preferredStyle: .alert)
         let accionOk = UIAlertAction(title: "OK", style: .default)
         alerta.addAction(accionOk)
         present(alerta, animated: true)
@@ -78,10 +80,13 @@ class ViewController: UIViewController,UISearchBarDelegate, MKMapViewDelegate {
                     // agregar esa anotacion al mapa
                     self.mapaMk.setRegion(region, animated: true)
                     self.mapaMk.addAnnotation(anotacion)
-                  //  self.trazarRuta
+                    self.mapaMk.selectAnnotation(anotacion, animated: true)
+                    
+                    //mandar llamar a trazar ruta
+                    self.trazarRuta(coordenadasDestino: destinoRuta.coordinate)
                     
                 }else{
-                    
+                    print("error al encontrar direccion ")
                 }
             }
         }
@@ -96,11 +101,57 @@ class ViewController: UIViewController,UISearchBarDelegate, MKMapViewDelegate {
         let origenPlacerMark = MKPlacemark(coordinate: coordOrigen)
         let destinoPlaceMark = MKPlacemark(coordinate: coordenadasDestino)
         
-        //obj tipo mapkit
+        //Crear un objeto mapkit ITem
+        let origenItem = MKMapItem(placemark: origenPlacerMark)
+        let destinoItem = MKMapItem(placemark: destinoPlaceMark)
+        
+        //solicitud de ruta
+        let solicitudDestino = MKDirections.Request()
+        solicitudDestino.source = origenItem
+        solicitudDestino.destination = destinoItem
+        //como se va viajar
+        
+        solicitudDestino.transportType = .automobile
+        solicitudDestino.requestsAlternateRoutes = true
+        
+        let direcciones = MKDirections(request: solicitudDestino)
+        
+        direcciones.calculate {(respueta, error) in
+            //variable segura
+            guard let respuestaSegura = respueta else{
+                if let error = error{
+                    print("error al calcular la ruta")
+                    let alerta = UIAlertController(title: "error al calcular la ruta", message: "", preferredStyle: .alert)
+                    let accionAceptar = UIAlertAction(title: "aceptar", style: .default, handler: nil)
+                    alerta.addAction(accionAceptar)
+                    self.present(alerta, animated: true)
+                }
+                return
+            }
+            //si todo salio bien
+            print(respuestaSegura.routes.count)
+            let ruta = respuestaSegura.routes.first
+            
+            let overlays = self.mapaMk.overlays
+            self.mapaMk.removeOverlays(overlays)
+            
+            //agregar al mapa una superposision
+            self.mapaMk.addOverlay(ruta!.polyline)
+            self.mapaMk.setVisibleMapRect((ruta!.polyline.boundingMapRect), animated: true)
+             
+            
+            
+        }
+            
         
         
         
-        
+    }
+    
+    func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+        let renderizado = MKPolylineRenderer(overlay: overlay as! MKPolyline)
+        renderizado.strokeColor = .red
+        return renderizado
     }
     
 }
